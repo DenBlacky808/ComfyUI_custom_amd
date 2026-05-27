@@ -17,7 +17,7 @@ from comfy.cli_args import args
 import comfy.memory_management
 import comfy.model_management
 import comfy.model_prefetch
-import comfy_aimdo.model_vbar
+from comfy import aimdo_compat
 
 from latent_preview import set_preview_method
 import nodes
@@ -537,10 +537,10 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
             finally:
                 if comfy.memory_management.aimdo_enabled:
                     if args.verbose == "DEBUG":
-                        comfy_aimdo.control.analyze()
+                        aimdo_compat.control.analyze()
                     comfy.model_management.reset_cast_buffers()
                     comfy.model_prefetch.cleanup_prefetch_queues()
-                    comfy_aimdo.model_vbar.vbars_reset_watermark_limits()
+                    aimdo_compat.model_vbar.vbars_reset_watermark_limits()
 
             if has_pending_tasks:
                 pending_async_nodes[unique_id] = output_data
