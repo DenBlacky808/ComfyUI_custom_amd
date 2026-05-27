@@ -1,7 +1,6 @@
 import comfy.model_management
 import comfy.memory_management
-import comfy_aimdo.host_buffer
-import comfy_aimdo.torch
+from comfy import aimdo_compat
 import torch
 
 from comfy.cli_args import args
@@ -52,7 +51,7 @@ def pin_memory(module, subset="weights", size=None):
         pin_state["failed"] = True
         return False
 
-    module._pin = comfy_aimdo.torch.hostbuf_to_tensor(hostbuf)[offset:offset + size]
+    module._pin = aimdo_compat.torch.hostbuf_to_tensor(hostbuf)[offset:offset + size]
     module._pin.untyped_storage()._comfy_hostbuf = hostbuf
     stack.append((module, offset))
     module._pin_registered = True

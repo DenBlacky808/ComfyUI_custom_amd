@@ -35,12 +35,10 @@ import comfy.model_management
 import comfy.ops
 import comfy.patcher_extension
 import comfy.utils
-import comfy_aimdo.host_buffer
+from comfy import aimdo_compat
 from comfy.comfy_types import UnetWrapperFunction
 from comfy.quant_ops import QuantizedTensor
 from comfy.patcher_extension import CallbacksMP, PatcherInjection, WrappersMP
-
-import comfy_aimdo.model_vbar
 
 def set_model_options_patch_replace(model_options, patch, name, block_name, number, transformer_index=None):
     to = model_options["transformer_options"].copy()
@@ -373,7 +371,7 @@ class ModelPatcher:
         aimdo_mem = 0
         if comfy.memory_management.aimdo_enabled:
             aimdo_device = device.index if getattr(device, "type", None) == "cuda" else None
-            aimdo_mem = comfy_aimdo.model_vbar.vbars_analyze(aimdo_device)
+            aimdo_mem = aimdo_compat.model_vbar.vbars_analyze(aimdo_device)
         return comfy.model_management.get_free_memory(device) + aimdo_mem
 
     def get_clone_model_override(self):
@@ -1721,8 +1719,8 @@ class ModelPatcherDynamic(ModelPatcher):
         """
         if device not in self.model.dynamic_pins:
             self.model.dynamic_pins[device] = {
-                "weights": (comfy_aimdo.host_buffer.HostBuffer(0, 0, 0), [], [-1], [0]),
-                "patches": (comfy_aimdo.host_buffer.HostBuffer(0, 0, 0), [], [-1], [0]),
+                "weights": (aimdo_compat.host_buffer.HostBuffer(0, 0, 0), [], [-1], [0]),
+                "patches": (aimdo_compat.host_buffer.HostBuffer(0, 0, 0), [], [-1], [0]),
                 "hostbufs_initialized": False,
                 "failed": False,
                 "active": False,
@@ -1739,7 +1737,7 @@ class ModelPatcherDynamic(ModelPatcher):
             # x10. We dont know what model defined type casts we have in the vbar, but virtual address
             # space is pretty free. This will cover someone casting an entire model from FP4 to FP32
             # with some left over.
-            vbar = comfy_aimdo.model_vbar.ModelVBAR(self.model_size() * 10, self.load_device.index)
+            vbar = aimdo_compat.model_vbar.ModelVBAR(self.model_size() * 10, self.load_device.index)
             self.model.dynamic_vbars[self.load_device] = vbar
         return vbar
 
@@ -1799,8 +1797,8 @@ class ModelPatcherDynamic(ModelPatcher):
             pin_state = self.model.dynamic_pins[self.load_device]
             if not pin_state["hostbufs_initialized"]:
                 hostbuf_size = comfy.model_management.pinned_hostbuf_size(self.model_size())
-                pin_state["weights"] = (comfy_aimdo.host_buffer.HostBuffer(0, 64 * 1024 * 1024, hostbuf_size), [], [-1], [0])
-                pin_state["patches"] = (comfy_aimdo.host_buffer.HostBuffer(0, 8 * 1024 * 1024, hostbuf_size), [], [-1], [0])
+                pin_state["weights"] = (aimdo_compat.host_buffer.HostBuffer(0, 64 * 1024 * 1024, hostbuf_size), [], [-1], [0])
+                pin_state["patches"] = (aimdo_compat.host_buffer.HostBuffer(0, 8 * 1024 * 1024, hostbuf_size), [], [-1], [0])
                 pin_state["hostbufs_initialized"] = True
             pin_state["failed"] = False
             pin_state["active"] = True
@@ -1878,7 +1876,7 @@ class ModelPatcherDynamic(ModelPatcher):
 
                     if force_load:
                         if hasattr(m, "_v"):
-                            comfy_aimdo.model_vbar.vbar_unpin(m._v)
+                            aimdo_compat.model_vbar.vbar_unpin(m._v)
                             delattr(m, "_v")
                         force_load_param(self, "weight", device_to)
                         force_load_param(self, "bias", device_to)

@@ -27,8 +27,7 @@ import comfy.memory_management
 import comfy.pinned_memory
 import comfy.utils
 
-import comfy_aimdo.model_vbar
-import comfy_aimdo.torch
+from comfy import aimdo_compat
 
 def run_every_op():
     if torch.compiler.is_compiling():
@@ -126,7 +125,7 @@ def cast_modules_with_vbar(comfy_modules, dtype, device, bias_dtype, non_blockin
             return torch.empty((buffer_size,), dtype=torch.uint8, device=device)
 
         cast_buffer = comfy.model_management.get_aimdo_cast_buffer(offload_stream, device)
-        buffer = comfy_aimdo.torch.aimdo_to_tensor(cast_buffer.get(buffer_size, cast_buffer_offset), device)
+        buffer = aimdo_compat.torch.aimdo_to_tensor(cast_buffer.get(buffer_size, cast_buffer_offset), device)
         cast_buffer_offset += buffer_size
         return buffer
 
@@ -147,8 +146,8 @@ def cast_modules_with_vbar(comfy_modules, dtype, device, bias_dtype, non_blockin
         return offset
 
     for s in comfy_modules:
-        signature = comfy_aimdo.model_vbar.vbar_fault(s._v)
-        resident = comfy_aimdo.model_vbar.vbar_signature_compare(signature, s._v_signature)
+        signature = aimdo_compat.model_vbar.vbar_fault(s._v)
+        resident = aimdo_compat.model_vbar.vbar_signature_compare(signature, s._v_signature)
         prefetch = {
             "signature": signature,
             "resident": resident,
@@ -159,7 +158,7 @@ def cast_modules_with_vbar(comfy_modules, dtype, device, bias_dtype, non_blockin
             continue
 
         materialize_meta_param(s, ["weight", "bias"])
-        xfer_dest = comfy_aimdo.torch.aimdo_to_tensor(s._v, device) if signature is not None else None
+        xfer_dest = aimdo_compat.torch.aimdo_to_tensor(s._v, device) if signature is not None else None
         cast_geometry = comfy.memory_management.tensors_to_geometries([ s.weight, s.bias ])
         cast_dest = None
         needs_cast = False
@@ -238,7 +237,7 @@ def cast_modules_with_vbar(comfy_modules, dtype, device, bias_dtype, non_blockin
                 for xfer_source, _, _, xfer_dest in stream_pin_queue:
                     cast_maybe_lowvram_patch(xfer_source, xfer_dest, offload_stream)
                 return offload_stream
-        stream_pin_tensor = comfy_aimdo.torch.hostbuf_to_tensor(stream_pin_hostbuf)
+        stream_pin_tensor = aimdo_compat.torch.hostbuf_to_tensor(stream_pin_hostbuf)
         stream_pin_tensor.untyped_storage()._comfy_hostbuf = stream_pin_hostbuf
         for xfer_source, pin_offset, pin_size, xfer_dest in stream_pin_queue:
             pin = stream_pin_tensor[pin_offset:pin_offset + pin_size]
@@ -433,7 +432,7 @@ def uncast_bias_weight(s, weight, bias, offload_stream):
     device=None
     #FIXME: This is really bad RTTI
     if weight_a is not None and not isinstance(weight_a, torch.Tensor):
-        comfy_aimdo.model_vbar.vbar_unpin(s._v)
+        aimdo_compat.model_vbar.vbar_unpin(s._v)
         device = weight_a
     if os is None:
         return

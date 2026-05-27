@@ -32,8 +32,7 @@ from contextlib import contextmanager, nullcontext
 import comfy.memory_management
 import comfy.utils
 import comfy.quant_ops
-import comfy_aimdo.host_buffer
-import comfy_aimdo.vram_buffer
+from comfy import aimdo_compat
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -1322,14 +1321,14 @@ def get_cast_buffer(offload_stream, device, size, ref):
 def get_aimdo_cast_buffer(offload_stream, device):
     cast_buffer = STREAM_AIMDO_CAST_BUFFERS.get(offload_stream, None)
     if cast_buffer is None:
-        cast_buffer = comfy_aimdo.vram_buffer.VRAMBuffer(DEFAULT_AIMDO_CAST_BUFFER_RESERVATION_SIZE, device.index)
+        cast_buffer = aimdo_compat.vram_buffer.VRAMBuffer(DEFAULT_AIMDO_CAST_BUFFER_RESERVATION_SIZE, device.index)
         STREAM_AIMDO_CAST_BUFFERS[offload_stream] = cast_buffer
     return cast_buffer
 
 def get_pin_buffer(offload_stream):
     pin_buffer = STREAM_PIN_BUFFERS.get(offload_stream, None)
     if pin_buffer is None:
-        pin_buffer = comfy_aimdo.host_buffer.HostBuffer(0, 0, pinned_hostbuf_size(8 * 1024**3), mark_cold=False)
+        pin_buffer = aimdo_compat.host_buffer.HostBuffer(0, 0, pinned_hostbuf_size(8 * 1024**3), mark_cold=False)
         STREAM_PIN_BUFFERS[offload_stream] = pin_buffer
     elif offload_stream is not None:
         event = getattr(pin_buffer, "_comfy_event", None)
@@ -1379,7 +1378,7 @@ def reset_cast_buffers():
         if model is not None and model.is_dynamic():
             model.model.dynamic_pins[model.load_device]["active"] = False
             model.partially_unload_ram(1e30, subsets=[ "patches" ])
-            model.model.dynamic_pins[model.load_device]["patches"] = (comfy_aimdo.host_buffer.HostBuffer(0, 8 * 1024 * 1024, pinned_hostbuf_size(model.model_size())), [], [-1], [0])
+            model.model.dynamic_pins[model.load_device]["patches"] = (aimdo_compat.host_buffer.HostBuffer(0, 8 * 1024 * 1024, pinned_hostbuf_size(model.model_size())), [], [-1], [0])
 
     STREAM_CAST_BUFFERS.clear()
     STREAM_AIMDO_CAST_BUFFERS.clear()
